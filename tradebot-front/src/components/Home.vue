@@ -1,9 +1,10 @@
 <template>
     <div>
         <h1>
-            Личный кабинет
+            Добро пожаловать в TradeBot Binance
         </h1>
         <button @click="goLogin">Вход</button>
+        <button @click="goReg">Регистрация</button>
     </div>
 </template>
 
@@ -13,6 +14,9 @@
         methods:{
             goLogin(){
                 this.$router.push({name:"login"})
+            },
+            goReg(){
+                this.$router.push({name:"registration"})
             }
         }
     }

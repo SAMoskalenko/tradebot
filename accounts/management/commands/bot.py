@@ -62,9 +62,15 @@ def do_account(update: Update, context: CallbackContext):
         key = UserAccount.objects.get(chat_id=chat_id).binance_key
         u = BinanceAPI(secret, key)
         t = u.get_account().json()
-        update.message.reply_text(
-            text=f'Данные вашего аккаунта {t}',
-        )
+        try:
+            u = t['code']
+            update.message.reply_text(
+                text=f'Заполните данные вашего аккаунта Binance',
+            )
+        except:
+            update.message.reply_text(
+                text=f'Данные вашего аккаунта {t}',
+            )
     else:
         update.message.reply_text(
             text=f'Заполните account ваш chat_id: {chat_id}',

@@ -3,6 +3,8 @@
         <input v-model="login" type="text" placeholder="Логин"/>
         <input v-model="password" type="password" placeholder="Пароль"/>
         <button @click="setLogin">Войти</button>
+        <button @click="goReg">Регистрация</button>
+        <button @click="goHome">Домой</button>
     </div>
 </template>
 
@@ -27,13 +29,21 @@
                     })
                     .then(response => {
                         alert("Спасибо что Вы с нами")
-                        this.$router.push({name: "home"})
+                        const token = response.data.token
+                        console.log(token)
+                        localStorage.setItem('user-token', token)
+                        this.$router.push({name: "account"})
                     })
                     .catch(e => {
-                        if (response.status === 400) {
-                            alert("Логин или пароль не верен")
-                        }
+                        localStorage.removeItem('user-token')
+                        alert("Логин или пароль не верен")
                     })
+            },
+            goHome() {
+                this.$router.push({name: "home"})
+            },
+            goReg() {
+                this.$router.push({name: "registration"})
             },
         }
     }
