@@ -2,3 +2,12 @@
 .idea
 /db.sqlite3
 /.env
+accounts/__pycache__/
+accounts/migrations/__pycache__/
+media/
+static/
+tradebot/__pycache__/
+tradebot/settings/__pycache__/
+__pycache__/
+accounts/management/__pycache__/
+accounts/management/commands/__pycache__/
