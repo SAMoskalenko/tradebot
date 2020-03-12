@@ -43,7 +43,7 @@ def do_time(update: Update, context: CallbackContext):
     check = checking(chat_id)
     if check:
         u = BinanceAPI()
-        t = u.get_time().json()
+        t = u.time().json()
         update.message.reply_text(
             text=f'Текущее время {t}',
         )
@@ -61,7 +61,7 @@ def do_account(update: Update, context: CallbackContext):
         secret = UserAccount.objects.get(chat_id=chat_id).binance_secret
         key = UserAccount.objects.get(chat_id=chat_id).binance_key
         u = BinanceAPI(secret, key)
-        t = u.get_account().json()
+        t = u.account().json()
         try:
             u = t['code']
             update.message.reply_text(
