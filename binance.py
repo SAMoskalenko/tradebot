@@ -1,229 +1,71 @@
-from requests.exceptions import ConnectionError
-from http.client import RemoteDisconnected
-from http.client import HTTPException
-from urllib3.exceptions import ProtocolError
-
+import requests
 import hmac
 import hashlib
-import requests
-import json
 import time
 
 
 class BinanceAPI(object):
-    WEBSITE = 'https://www.binance.com'
-    API_URL = 'https://api.binance.com'
+    BASE_URL = 'https://api.binance.com'
 
-    def __init__(self, api_key=None, api_secret=None):
+    def __init__(self, secret=None, key=None):
+        self.secret = secret
+        self.key = key
+        self.headers = {'Accept': 'application/json',
+                        'X-MBX-APIKEY': key}
 
-        self.key = api_key
-        self.secret = api_secret
-        self.session = requests.session()
-        self.time_offset = 2000
-        self.session.headers.update({'Accept': 'application/json',
-                                     'X-MBX-APIKEY': self.key})
+    def __signature(self, params):
+        data = "&".join(['%s=%s' % (k, v) for k, v in params.items()])
+        signature = hmac.new(bytes(self.secret, 'utf-8'), msg=data.encode('utf-8'),
+                             digestmod=hashlib.sha256).hexdigest()
+        return signature
 
-    # изучить библиотеку Requests в части session
-    def refresh_session(self):
-        self.session = 'kill and refresh'  # бред?
-        self.session = requests.session()
-
-    def set_offset(self):
-        got_time = False
-        while not got_time:
-            try:
-                cur_time = int(time.time() * 1000)
-                # понять как работает self.time
-                bintime = int(self.time()['serverTime'])
-                time_diff = cur_time - bintime
-                if time_diff > 0:
-                    self.time_offset = time_diff
-                else:
-                    # почему??
-                    self.time_offset = 500
-            except (
-                    InternalError, StatusUnknown, ConnectionError, RemoteDisconnected, ProtocolError,
-                    HTTPException) as e:
-                print(str(e) + ' ' + str(e.__traceback__) + 'Time check failed, retry')
-                time.sleep(.5)
-            else:
-                got_time = True
-
-    def _sign(self, data):
-        # assert? что это??
-        assert (self.key and self.secret)
-
-        # как расшифроввывается url
-        url_data = "&".join(['%s=%s' % (k, v) for k, v in data.items()])
-
-        return hmac.new(bytes(self.secret, 'utf-8'), msg=url_data.encode('utf-8'), digestmod=hashlib.sha256).hexdigest()
-
-    def _request(self, endpoint, params, http_method):
-
-        r = getattr(self.session, http_method)(BinanceAPI.API_URL + endpoint, params=params)
-
-        if r.status_code == 200:
-            return json.loads(r.text)
-
-        return json.loads(r.text)
-
-    def _get(self, endpoint, param=None):
-        return self._request(endpoint, param, "get")
-
-    def _post(self, endpoint, param=None):
-        return self._request(endpoint, param, "post")
-
-    def _delete(self, endpoint, param=None):
-        return self._request(endpoint, param, "delete")
-
-    def _put(self, endpoint, param=None):
-        return self._request(endpoint, param, "put")
-
-    def set_api(self, api_key, api_secret):
-
-        self.key = api_key
-        self.secret = api_secret
-        self.session.headers.update({'Accept': 'application/json',
-                                     'X-MBX-APIKEY': self.key})
-
-    # Public endpoints, unsigned
-    def ping(self):
-        """
-        Test connectivity to the Rest API.
-        GET /api/v1/ping
-        """
-
-        return self._get('v1/ping')
-
-    def time(self):
+    def get_time(self):
         """
         Test connectivity to the Rest API and get the current server time.
-        GET /api/v1/time
+        GET /api/v3/time
         """
 
-        return self._get('v1/time')
+        url = f'{self.BASE_URL}/api/v3/time'
+        return requests.get(url)
 
-    def depth(self, symbol, limit=100):
+    def get_depth(self, symbol, limit=20):
         """
         Get order book.
-        GET /api/v1/depth
+        GET /api/v3/depth
         """
 
-        p = {'symbol': symbol, 'limit': limit}
+        url = f'{self.BASE_URL}/api/v3/depth'
+        params = {'symbol': symbol, 'limit': limit}
+        return requests.get(url, params)
 
-        return self._get('v1/depth', p)
-
-    def aggTrades(self, symbol, fromId=None, startTime=None, endTime=None, limit=500):
-        """
-        Get compressed, aggregate trades. Trades that fill at the time, from the same order, with the same price will have the quantity aggregated.
-        GET /api/v1/aggTrades
-        """
-
-        p = {'symbol': symbol}
-
-        if fromId:
-            p['fromId'] = fromId
-
-        if startTime:
-            p['startTime'] = startTime
-
-        if endTime:
-            p['endTime'] = endTime
-
-        # If both startTime and endTime are sent, limit should not be sent.
-        if not startTime or not endTime:
-            p['limit'] = limit
-
-        return self._get('v1/aggTrades', p)
-
-    def klines(self, symbol, interval, startTime=None, endTime=None, limit=500):
-        """
-        Kline/candlestick bars for a symbol. Klines are uniquely identified by their open time.
-        GET /api/v1/klines
-        """
-
-        p = {'symbol': symbol, 'interval': interval}
-
-        if startTime:
-            p['startTime'] = startTime
-
-        if endTime:
-            p['endTime'] = endTime
-
-        if limit:
-            p['limit'] = limit
-
-        return self._get('v1/klines?', p)
-
-    def stats24hr(self, symbol):
-        """
-        24 hour price change statistics.
-        GET /api/v1/ticker/24hr
-        """
-
-        p = {'symbol': symbol}
-
-        return self._get('v1/ticker/24hr?', p)
-
-    def allPrices(self):
-        """
-        Latest price for all symbols.
-        GET /api/v1/ticker/allPrices
-        """
-
-        return self._get('v1/ticker/allPrices')
-
-    def allBookTickers(self):
-        """
-        Best price/qty on the order book for all symbols.
-        GET /api/v1/ticker/allBookTickers
-        """
-
-        return self._get('v1/ticker/allBookTickers')
-
-    # Public methods that require signature
-    def newLimitBuyOrder(self, symbol, quantity, price):
-        return self.newOrder(symbol, "BUY", "LIMIT", "GTC", quantity, price)
-
-    def newLimitSellOrder(self, symbol, quantity, price):
-        return self.newOrder(symbol, "SELL", "LIMIT", "GTC", quantity, price)
-
-    def newMarketBuyOrder(self, symbol, quantity, price):
-        return self.newOrder(symbol, "BUY", "MARKET", "GTC", quantity, price)
-
-    def newMarketSellOrder(self, symbol, quantity, price):
-        return self.newOrder(symbol, "SELL", "MARKET", "GTC", quantity, price)
-
-    def newOrder(self, symbol, side, type, timeInForce, quantity, price, newClientOrderId=None, stopPrice=None,
-                 icebergQty=None, recvWindow=None):
+    def newOrder(self, symbol, side, ord_type, quantity, price=None, timeInForce=None, newClientOrderId=None,
+                 stopPrice=None, icebergQty=None, recvWindow=None):
         """
         Send in a new order.
         POST /api/v3/order
         """
 
-        p = {'symbol': symbol,
-             'side': side,
-             'type': type,
-             'timeInForce': timeInForce,
-             'quantity': quantity,
-             'price': price,
-             'timestamp': int((time.time() * 1000) - self.time_offset)}
-
+        url = f'{self.BASE_URL}/api/v3/order?'
+        params = {'symbol': symbol,
+                  'side': side,
+                  'type': ord_type,
+                  'timestamp': int(time.time() * 1000)}
+        if quantity:
+            params['quantity'] = quantity
+        if price:
+            params['price'] = price
+        if timeInForce:
+            params['timeInForce'] = timeInForce
         if newClientOrderId:
-            p['newClientOrderId'] = newClientOrderId
-
+            params['newClientOrderId'] = newClientOrderId
         if stopPrice:
-            p['stopPrice'] = stopPrice
-
+            params['stopPrice'] = stopPrice
         if icebergQty:
-            p['icebergQty'] = icebergQty
-
+            params['icebergQty'] = icebergQty
         if recvWindow:
-            p['recvWindow'] = recvWindow
-
-        p['signature'] = self._sign(p)
-
-        return self._post('v3/order?', p)
+            params['recvWindow'] = recvWindow
+        params['signature'] = self.__signature(params)
+        return requests.post(url, params, headers=self.headers)
 
     def queryOrder(self, symbol, orderId=None, origClientOrderId=None, recvWindow=None):
         """
@@ -231,23 +73,16 @@ class BinanceAPI(object):
         GET /api/v3/order
         """
 
-        p = {'symbol': symbol, 'timestamp': int((time.time() * 1000) - self.time_offset)}
-
+        url = f'{self.BASE_URL}/api/v3/order?'
+        params = {'symbol': symbol, 'timestamp': int(time.time() * 1000)}
         if orderId:
-            p['orderId'] = orderId
-
+            params['orderId'] = orderId
         elif origClientOrderId:
-            p['origClientOrderId'] = origClientOrderId
-
-        else:
-            raise MalformedRequest("Either orderId or origClientOrderId must be sent.")
-
+            params['origClientOrderId'] = origClientOrderId
         if recvWindow:
-            p['recvWindow'] = recvWindow
-
-        p['signature'] = self._sign(p)
-
-        return self._get('v3/order?', p)
+            params['recvWindow'] = recvWindow
+        params['signature'] = self.__signature(params)
+        return requests.get(url, params, headers=self.headers)
 
     def deleteOrder(self, symbol, orderId=None, origClientOrderId=None, newClientOrderId=None, recvWindow=None):
         """
@@ -255,23 +90,18 @@ class BinanceAPI(object):
         DELETE /api/v3/order
         """
 
-        p = {'symbol': symbol, 'timestamp': int((time.time() * 1000) - self.time_offset)}
-
+        url = f'{self.BASE_URL}/api/v3/order?'
+        params = {'symbol': symbol, 'timestamp': int(time.time() * 1000)}
         if orderId:
-            p['orderId'] = orderId
-
+            params['orderId'] = orderId
         if origClientOrderId:
-            p['origClientOrderId'] = origClientOrderId
-
+            params['origClientOrderId'] = origClientOrderId
         if newClientOrderId:
-            p['newClientOrderId'] = newClientOrderId
-
+            params['newClientOrderId'] = newClientOrderId
         if recvWindow:
-            p['recvWindow'] = recvWindow
-
-        p['signature'] = self._sign(p)
-
-        return self._delete('v3/order?', p)
+            params['recvWindow'] = recvWindow
+        params['signature'] = self.__signature(params)
+        return requests.delete(url, data=params, headers=self.headers)
 
     def openOrders(self, symbol, recvWindow=None):
         """
@@ -279,14 +109,12 @@ class BinanceAPI(object):
         GET /api/v3/openOrders
         """
 
-        p = {'symbol': symbol, 'timestamp': int((time.time() * 1000) - self.time_offset)}
-
+        url = f'{self.BASE_URL}/api/v3/openOrders?'
+        params = {'symbol': symbol, 'timestamp': int(time.time() * 1000)}
         if recvWindow:
-            p['recvWindow'] = recvWindow
-
-        p['signature'] = self._sign(p)
-
-        return self._get('v3/openOrders?', p)
+            params['recvWindow'] = recvWindow
+        params['signature'] = self.__signature(params)
+        return requests.get(url, params, headers=self.headers)
 
     def allOrders(self, symbol, orderId=None, limit=500, recvWindow=None):
         """
@@ -294,88 +122,59 @@ class BinanceAPI(object):
         GET /api/v3/allOrders
         """
 
-        p = {'symbol': symbol, 'limit': limit, 'timestamp': int((time.time() * 1000) - self.time_offset)}
-
+        url = f'{self.BASE_URL}/api/v3/allOrders?'
+        params = {'symbol': symbol, 'limit': limit, 'timestamp': int(time.time() * 1000)}
         if orderId:
-            p['orderId'] = orderId
-
+            params['orderId'] = orderId
         if recvWindow:
-            p['recvWindow'] = recvWindow
+            params['recvWindow'] = recvWindow
+        params['signature'] = self.__signature(params)
+        return requests.get(url, params, headers=self.headers)
 
-        p['signature'] = self._sign(p)
-
-        return self._get('v3/allOrders?', p)
-
-    def account(self, recvWindow=None):
+    def account(self):
         """
         Get current account information.
         GET /api/v3/account
         """
 
-        p = {'timestamp': int((time.time() * 1000) - self.time_offset)}
+        url = f'{self.BASE_URL}/api/v3/account?'
+        params = {'timestamp': int(time.time() * 1000)}
+        params['signature'] = self.__signature(params)
+        return requests.get(url, params, headers=self.headers)
 
-        if recvWindow:
-            p['recvWindow'] = recvWindow
-
-        p['signature'] = self._sign(p)
-
-        return self._get('v3/account?', p)
-
-    def myTrades(self, symbol, limit=500, fromId=None, recvWindow=None):
+    def myTrades(self, symbol, limit=20, fromId=None, recvWindow=None):
         """
         Get trades for a specific account and symbol.
         GET /api/v3/myTrades
-        https://www.binance.com/restapipub.html#account-trade-list-signed
         """
 
-        p = {'symbol': symbol, 'limit': limit, 'timestamp': int((time.time() * 1000) - self.time_offset)}
-
+        url = f'{self.BASE_URL}/api/v3/myTrades?'
+        params = {'symbol': symbol, 'limit': limit, 'timestamp': int(time.time() * 1000)}
         if fromId:
-            p['fromId'] = fromId
-
+            params['fromId'] = fromId
         if recvWindow:
-            p['recvWindow'] = recvWindow
+            params['recvWindow'] = recvWindow
+        params['signature'] = self.__signature(params)
+        return requests.get(url, params, headers=self.headers)
 
-        p['signature'] = self._sign(p)
-
-        return self._get('v3/myTrades?', p)
-
-    # User stream endpoints
-    def new_stream(self):
+    def depositHistory(self):
         """
-        Start a new user data stream.
-        POST /api/v1/userDataStream
-        https://www.binance.com/restapipub.html#start-user-data-stream-api-key
+        Fetch deposit history.
+        GET /wapi/v3/depositHistory.html
         """
 
-        assert (self.key)
+        url = f'{self.BASE_URL}/wapi/v3/depositHistory.html'
+        params = {'timestamp': int(time.time() * 1000)}
+        params['signature'] = self.__signature(params)
+        return requests.get(url, params, headers=self.headers)
 
-        res = self._post('v1/userDataStream')
-
-        return res['listenKey']
-
-    def keepalive_stream(self, listenKey):
+    def withdrawHistory(self):
         """
-        PING a user data stream to prevent a time out.
-        PUT /api/v1/userDataStream
-        https://www.binance.com/restapipub.html#keepalive-user-data-stream-api-key
+        Fetch withdraw history.
+        GET /wapi/v3/withdrawHistory.html
         """
 
-        assert (self.key)
-
-        param = "listenKey=%s" % (listenKey)
-
-        return self._put('v1/userDataStream', param)
-
-    def keepalive_stream(self, listenKey):
-        """
-        PING a user data stream to prevent a time out.
-        DELETE /api/v1/userDataStream
-        https://www.binance.com/restapipub.html#close-user-data-stream-api-key
-        """
-
-        assert (self.key)
-
-        param = "listenKey=%s" % (listenKey)
-
-        return self._delete('v1/userDataStream', param)
+        url = f'{self.BASE_URL}/wapi/v3/withdrawHistory.html'
+        params = {'timestamp': int(time.time() * 1000)}
+        params['signature'] = self.__signature(params)
+        return requests.get(url, params, headers=self.headers)
