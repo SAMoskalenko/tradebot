@@ -4,13 +4,16 @@ DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
+TELEGRAM_BOT_ID = os.environ['TELEGRAM_BOT_ID']
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': os.environ['POSTGRES_DB'],
-        'USER': os.environ['POSTGRES_USER'],
+        'NAME': os.environ['POSTGRES_NAME'],
+        'USER': os.environ['POSTGRES_NAME'],
         'PASSWORD': os.environ['POSTGRES_PASSWORD'],
-        'HOST': 'db',
+        'HOST': os.environ['POSTGRES_HOST'],
         'PORT': '5432',
     }
 }
+
