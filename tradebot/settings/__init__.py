@@ -1,5 +1,3 @@
-import os
-
 from .base import *
 
 if os.getenv('ENVIRONMENT') == 'production':

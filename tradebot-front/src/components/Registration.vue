@@ -11,6 +11,7 @@
 
 <script>
     import axios from 'axios'
+    import config from "../config";
 
     export default {
         name: "Registration",
@@ -30,7 +31,7 @@
             },
             setReg() {
                 axios.post(
-                    "http://127.0.0.1:8000/auth/registration/",
+                    `${config.apiUrl}/auth/registration/`,
                     {
                         username: this.login,
                         password1: this.password1,

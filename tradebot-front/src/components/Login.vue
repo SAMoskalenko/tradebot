@@ -10,6 +10,7 @@
 
 <script>
     import axios from 'axios'
+    import config from "../config";
 
     export default {
         name: "Login",
@@ -22,7 +23,7 @@
         methods: {
             setLogin() {
                 axios.post(
-                    "http://127.0.0.1:8000/auth/login/",
+                    `${config.apiUrl}/auth/login/`,
                     {
                         username: this.login,
                         password: this.password

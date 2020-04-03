@@ -31,6 +31,7 @@
 
 <script>
     import axios from 'axios'
+    import config from "../config";
 
     export default {
         name: "Account",
@@ -44,7 +45,7 @@
         },
         created() {
             const token = localStorage.getItem('user-token')
-            axios.get("http://127.0.0.1:8000/accounts/", {headers: {'Authorization': "Bearer " + token}})
+            axios.get(`${config.apiUrl}/accounts/`, {headers: {'Authorization': "Bearer " + token}})
                 .then(response => {
                     this.account = response.data[0]
                 })

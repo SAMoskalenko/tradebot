@@ -27,6 +27,7 @@
 
 <script>
     import axios from 'axios'
+    import config from "../config";
 
     export default {
         name: "Account_PUT",
@@ -41,7 +42,7 @@
         methods: {
             setAccount() {
                 const token = localStorage.getItem('user-token')
-                axios.put("http://127.0.0.1:8000/accounts/1/",
+                axios.put(`${config.apiUrl}/accounts/1/`,
                     {
                         name: this.user_name,
                         binance_key: this.binance_key,
